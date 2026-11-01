@@ -67,6 +67,7 @@
 
       <section id="page-collection" class="page">
         <div class="section-heading"><div><p class="eyebrow">COLLECTION</p><h2>내 캐릭터</h2></div><span class="muted">중복은 강화하거나 한 명씩 판매할 수 있어요.</span></div>
+        <div class="automation-row"><button id="autoSellButton" class="secondary-btn automation-btn">자동 판매 시작</button></div>
         <div id="collectionGrid" class="character-grid"></div>
       </section>
 
@@ -79,6 +80,7 @@
             <select id="enhanceSelect"></select>
             <div id="enhanceInfo" class="enhance-info">캐릭터를 선택해 주세요.</div>
             <button id="enhanceButton" class="primary-btn">강화 도전</button>
+            <button id="autoEnhanceButton" class="secondary-btn automation-btn">자동 강화 시작</button>
           </div>
           <div id="enhanceLog" class="log" aria-live="polite">강화 기록이 여기에 표시됩니다.</div>
         </div>
@@ -103,6 +105,7 @@
             <div id="battleBotCard" class="fighter-card"></div>
           </div>
           <button id="battleButton" class="primary-btn battle-btn">⚔️ 대전 시작</button>
+          <button id="autoBattleButton" class="secondary-btn battle-btn automation-btn">자동 대전 시작</button>
           <div id="battleResult" class="battle-result" aria-live="polite">캐릭터를 선택하고 대전을 시작하세요.</div>
         </div>
         <div class="panel">
