@@ -79,6 +79,14 @@
             <label for="enhanceSelect">강화할 캐릭터</label>
             <select id="enhanceSelect"></select>
             <div id="enhanceInfo" class="enhance-info">캐릭터를 선택해 주세요.</div>
+            <label for="enhanceSpeed">자동 강화 속도</label>
+            <select id="enhanceSpeed" class="speed-select">
+              <option value="1">1배속</option>
+              <option value="2">2배속</option>
+              <option value="3">3배속</option>
+              <option value="4">4배속</option>
+              <option value="5">5배속</option>
+            </select>
             <button id="enhanceButton" class="primary-btn">강화 도전</button>
             <button id="autoEnhanceButton" class="secondary-btn automation-btn">자동 강화 시작</button>
           </div>
@@ -104,6 +112,19 @@
             <select id="botSelect"></select>
             <div id="battleBotCard" class="fighter-card"></div>
           </div>
+
+          <div class="battle-health" aria-live="polite">
+            <div class="health-side">
+              <div class="health-label"><strong id="playerHpName">내 캐릭터</strong><span id="playerHpText">100 / 100</span></div>
+              <div class="health-track"><div id="playerHpBar" class="health-fill player-health"></div></div>
+            </div>
+            <div class="health-side">
+              <div class="health-label"><strong id="botHpName">상대 봇</strong><span id="botHpText">100 / 100</span></div>
+              <div class="health-track"><div id="botHpBar" class="health-fill bot-health"></div></div>
+            </div>
+          </div>
+
+          <div id="battleLog" class="battle-log" aria-live="polite">대전 기록이 여기에 표시됩니다.</div>
           <button id="battleButton" class="primary-btn battle-btn">⚔️ 대전 시작</button>
           <button id="autoBattleButton" class="secondary-btn battle-btn automation-btn">자동 대전 시작</button>
           <div id="battleResult" class="battle-result" aria-live="polite">캐릭터를 선택하고 대전을 시작하세요.</div>
