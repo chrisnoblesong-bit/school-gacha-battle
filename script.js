@@ -443,7 +443,6 @@ function toggleAutoEnhance(){
 
   },25);
 
-  // 180초 후 자동 정지
   autoEnhanceLimitTimer=setTimeout(()=>{
     stopAutoEnhance("⏰ 자동 강화 3분이 지나 자동으로 정지되었습니다.");
   },180000);
@@ -855,13 +854,13 @@ function closeGameClear(){
 }
 
 /* ==================================
-   관리자
+   관리자 - 코드 140614
 ================================== */
 
 function activateAdmin(){
   const input=document.getElementById("adminCode");
 
-  if(input.value!=="110924"){
+  if(input.value!=="140614"){
     toast("관리자 코드가 맞지 않습니다.");
     return;
   }
@@ -926,111 +925,4 @@ function renderAll(){
   document.getElementById("winCount").textContent=
     state.wins;
 
-  document.getElementById("battlePower").textContent=
-    totalPower().toLocaleString();
-
-  renderCollection();
-  renderEnhance();
-  renderBattle();
-  renderSpecialEnhance();
-}
-
-/* ==================================
-   버튼 연결
-================================== */
-
-document.querySelectorAll(".tab").forEach(btn=>
-  btn.addEventListener("click",()=>{
-    document.querySelectorAll(".tab").forEach(b=>
-      b.classList.toggle("active",b===btn)
-    );
-
-    document.querySelectorAll(".page").forEach(p=>
-      p.classList.toggle(
-        "active",
-        p.id==="page-"+btn.dataset.page
-      )
-    );
-  })
-);
-
-document.getElementById("summonOne")
-  .addEventListener("click",()=>summon(1));
-
-document.getElementById("summonTen")
-  .addEventListener("click",()=>summon(10));
-
-document.getElementById("autoSummonButton")
-  .addEventListener("click",toggleAutoSummon);
-
-document.getElementById("enhanceSelect")
-  .addEventListener("change",renderEnhance);
-
-document.getElementById("collectionGrid")
-  .addEventListener("click",event=>{
-    const button=event.target.closest("[data-sell]");
-
-    if(!button)return;
-
-    const id=button.dataset.sell;
-    const c=character(id);
-    const count=state.inventory[id]||0;
-
-    if(!c||count<1)return;
-
-    state.inventory[id]=count-1;
-
-    if(state.inventory[id]===0){
-      delete state.inventory[id];
-    }
-
-    const earned=salePrice(c);
-
-    state.coins+=earned;
-
-    save();
-
-    toast(c.name+" 1명을 판매해 "+earned+"코인을 받았어요.");
-  });
-
-document.getElementById("enhanceButton")
-  .addEventListener("click",enhance);
-
-document.getElementById("autoSellButton")
-  .addEventListener("click",toggleAutoSell);
-
-document.getElementById("autoEnhanceButton")
-  .addEventListener("click",toggleAutoEnhance);
-
-document.getElementById("specialEnhanceButton")
-  .addEventListener("click",specialEnhance);
-
-document.getElementById("adminButton")
-  .addEventListener("click",activateAdmin);
-
-document.getElementById("closeGameClear")
-  .addEventListener("click",closeGameClear);
-
-document.getElementById("battleSelect")
-  .addEventListener("change",updateFighters);
-
-document.getElementById("battleSpeed")
-  .addEventListener("change",()=>{
-    toast(
-      "대전 속도: "+
-      document.getElementById("battleSpeed").value+
-      "배속"
-    );
-  });
-
-document.getElementById("autoBattleButton")
-  .addEventListener("click",toggleAutoBattle);
-
-document.getElementById("battleButton")
-  .addEventListener("click",battle);
-
-/* ==================================
-   게임 시작
-================================== */
-
-renderAll();
+  document.get
