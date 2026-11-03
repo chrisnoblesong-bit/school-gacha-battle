@@ -40,7 +40,10 @@
 
     <main>
       <section id="page-summon" class="page active">
-        <div class="section-heading"><div><p class="eyebrow">SUMMON</p><h2>캐릭터 뽑기</h2></div><span class="muted">게임 코인으로 뽑기</span></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">SUMMON</p><h2>캐릭터 뽑기</h2></div>
+          <span class="muted">게임 코인으로 뽑기</span>
+        </div>
         <div class="summon-layout">
           <div class="summon-card panel">
             <div class="summon-orb">✦</div>
@@ -49,6 +52,7 @@
             <div class="price">🪙 10 코인 / 1회</div>
             <button id="summonOne" class="primary-btn">한 번 뽑기</button>
             <button id="summonTen" class="secondary-btn">10회 뽑기 <small>(100 코인)</small></button>
+            <button id="autoSummonButton" class="secondary-btn">자동 뽑기 시작 · 10배속</button>
             <p class="tiny-note">1회 10코인 · 10회 100코인 · 실제 결제는 없습니다.</p>
           </div>
           <div class="panel odds-panel">
@@ -66,13 +70,19 @@
       </section>
 
       <section id="page-collection" class="page">
-        <div class="section-heading"><div><p class="eyebrow">COLLECTION</p><h2>내 캐릭터</h2></div><span class="muted">중복은 강화하거나 한 명씩 판매할 수 있어요.</span></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">COLLECTION</p><h2>내 캐릭터</h2></div>
+          <span class="muted">중복은 강화하거나 한 명씩 판매할 수 있어요.</span>
+        </div>
         <div class="automation-row"><button id="autoSellButton" class="secondary-btn automation-btn">자동 판매 시작</button></div>
         <div id="collectionGrid" class="character-grid"></div>
       </section>
 
       <section id="page-enhance" class="page">
-        <div class="section-heading"><div><p class="eyebrow">ENHANCE</p><h2>같은 캐릭터 강화</h2></div><span class="muted">성공하면 다음 등급으로 진화!</span></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">ENHANCE</p><h2>같은 캐릭터 강화</h2></div>
+          <span class="muted">성공하면 다음 등급으로 진화!</span>
+        </div>
         <div class="panel enhance-panel">
           <p>같은 캐릭터를 2명 이상 보유하면 강화할 수 있습니다. 성공 시 재료 1명이 소모되고, 실패해도 캐릭터는 사라지지 않습니다.</p>
           <div class="enhance-controls">
@@ -86,20 +96,51 @@
               <option value="3">3배속</option>
               <option value="4">4배속</option>
               <option value="5">5배속</option>
+              <option value="6">6배속</option>
+              <option value="7">7배속</option>
+              <option value="8">8배속</option>
+              <option value="9">9배속</option>
+              <option value="10">10배속</option>
             </select>
             <button id="enhanceButton" class="primary-btn">강화 도전</button>
             <button id="autoEnhanceButton" class="secondary-btn automation-btn">자동 강화 시작</button>
           </div>
           <div id="enhanceLog" class="log" aria-live="polite">강화 기록이 여기에 표시됩니다.</div>
         </div>
+
+        <div id="specialEnhancePanel" class="panel special-enhance-panel" hidden>
+          <h3>🌟 특수 강화</h3>
+          <p>개발자 송가오와 폭군 김하진을 모두 가지고 있으면 도전할 수 있어요.</p>
+          <p>현재 성공 확률: <strong id="specialChance">1%</strong></p>
+          <button id="specialEnhanceButton" class="primary-btn">특수 강화 도전</button>
+        </div>
+
+        <div class="panel admin-panel">
+          <h3>🔐 관리자 모드</h3>
+          <p>관리자 코드를 입력하면 특별 캐릭터를 획득합니다.</p>
+          <div class="admin-controls">
+            <input id="adminCode" type="password" inputmode="numeric" placeholder="관리자 코드">
+            <button id="adminButton" class="secondary-btn">코드 입력</button>
+          </div>
+        </div>
+
         <div class="panel upgrade-rates">
           <h3>등급 상승 성공 확률</h3>
-          <div class="rate-chips"><span>일반 → 레어 <b>70%</b></span><span>레어 → 슈퍼레어 <b>50%</b></span><span>슈퍼레어 → 레전드 <b>30%</b></span><span>레전드 → 레전드 이상 <b>15%</b></span><span>레전드 이상 → 비밀 <b>5%</b></span></div>
+          <div class="rate-chips">
+            <span>일반 → 레어 <b>70%</b></span>
+            <span>레어 → 슈퍼레어 <b>50%</b></span>
+            <span>슈퍼레어 → 레전드 <b>30%</b></span>
+            <span>레전드 → 레전드 이상 <b>15%</b></span>
+            <span>레전드 이상 → 비밀 <b>5%</b></span>
+          </div>
         </div>
       </section>
 
       <section id="page-battle" class="page">
-        <div class="section-heading"><div><p class="eyebrow">BOT ARENA</p><h2>봇 대전</h2></div><span class="muted">시작 5코인 · 승리 +100코인 · 패배 추가 차감 50코인</span></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">BOT ARENA</p><h2>봇 대전</h2></div>
+          <span class="muted">시작 5코인 · 승리 +100코인 · 패배 추가 차감 50코인</span>
+        </div>
         <div class="panel battle-panel">
           <div class="battle-select">
             <label for="battleSelect">출전 캐릭터</label>
@@ -108,9 +149,24 @@
           </div>
           <div class="versus">VS</div>
           <div class="battle-select">
-            <label for="botSelect">상대 봇</label>
-            <select id="botSelect"></select>
-            <div id="battleBotCard" class="fighter-card"></div>
+            <label>상대 봇 · 매 경기 무작위</label>
+            <div id="battleBotCard" class="fighter-card">대전 시작 시 상대가 정해집니다.</div>
+          </div>
+
+          <div class="battle-speed-control">
+            <label for="battleSpeed">대전 속도</label>
+            <select id="battleSpeed" class="speed-select">
+              <option value="1">1배속</option>
+              <option value="2">2배속</option>
+              <option value="3">3배속</option>
+              <option value="4">4배속</option>
+              <option value="5">5배속</option>
+              <option value="6">6배속</option>
+              <option value="7">7배속</option>
+              <option value="8">8배속</option>
+              <option value="9">9배속</option>
+              <option value="10">10배속</option>
+            </select>
           </div>
 
           <div class="battle-health" aria-live="polite">
@@ -129,14 +185,26 @@
           <button id="autoBattleButton" class="secondary-btn battle-btn automation-btn">자동 대전 시작</button>
           <div id="battleResult" class="battle-result" aria-live="polite">캐릭터를 선택하고 대전을 시작하세요.</div>
         </div>
+
         <div class="panel">
           <h3>🤖 상대 봇 목록 <small>· 약한 순서 → 강한 순서</small></h3>
           <div id="botRoster" class="bot-roster"></div>
         </div>
       </section>
     </main>
+
     <footer>학교 뽑기대전 · 개인용 팬메이드 게임</footer>
   </div>
+
+  <div id="gameClearOverlay" class="game-clear-overlay" hidden>
+    <div class="game-clear-card">
+      <div class="clear-emoji">🏆</div>
+      <h2>게임 클리어!</h2>
+      <p id="gameClearName">황한송김박돼지 승원</p>
+      <button id="closeGameClear" class="primary-btn">계속하기</button>
+    </div>
+  </div>
+
   <div id="toast" class="toast" role="status"></div>
   <script src="script.js"></script>
 </body>
