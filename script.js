@@ -31,9 +31,14 @@ const CHARACTERS = [
 ];
 
 const RATES=[70,50,30,15,5];
+
 const GACHA=[
-  {rank:0,weight:50},{rank:1,weight:27},{rank:2,weight:15},
-  {rank:3,weight:6},{rank:4,weight:1.8},{rank:5,weight:.2}
+  {rank:0,weight:50},
+  {rank:1,weight:27},
+  {rank:2,weight:15},
+  {rank:3,weight:6},
+  {rank:4,weight:1.8},
+  {rank:5,weight:.2}
 ];
 
 const BOTS=[
@@ -61,17 +66,60 @@ let state=loadState();
 let toastTimer;
 let autoSellTimer=null;
 let autoEnhanceTimer=null;
+let autoEnhanceLimitTimer=null;
 let autoSummonTimer=null;
 let autoBattleRunning=false;
 let battleInProgress=false;
 let lastAutoEnhanceAt=0;
 let specialBoosted=false;
 
+/* ==================================
+   초당 30회 이상 클릭 시 게임 초기화
+================================== */
+
+const clickHistory=[];
+let resetTriggered=false;
+
+document.addEventListener("click",event=>{
+  if(resetTriggered)return;
+
+  const button=event.target.closest("button");
+  if(!button)return;
+
+  const now=Date.now();
+
+  clickHistory.push(now);
+
+  while(clickHistory.length>0&&now-clickHistory[0]>=1000){
+    clickHistory.shift();
+  }
+
+  if(clickHistory.length>=30){
+    resetTriggered=true;
+
+    clearInterval(autoSellTimer);
+    clearInterval(autoEnhanceTimer);
+    clearTimeout(autoEnhanceLimitTimer);
+    clearInterval(autoSummonTimer);
+
+    localStorage.removeItem(STORAGE_KEY);
+
+    alert("초당 30회 이상 클릭이 감지되었습니다.\n게임 데이터가 초기화됩니다.");
+
+    location.reload();
+  }
+},true);
+
+/* ==================================
+   기본 저장 기능
+================================== */
+
 function loadState(){
   try{
     const s=JSON.parse(localStorage.getItem(STORAGE_KEY));
     if(s&&s.inventory)return s;
   }catch(e){}
+
   return {coins:500,inventory:{hwang:1},wins:0};
 }
 
@@ -80,9 +128,17 @@ function save(){
   renderAll();
 }
 
-function rarity(rank){return RARITIES[rank]||RARITIES[0];}
-function character(id){return CHARACTERS.find(c=>c.id===id);}
-function characterPower(c){return c?(c.power||rarity(c.rank).power):0;}
+function rarity(rank){
+  return RARITIES[rank]||RARITIES[0];
+}
+
+function character(id){
+  return CHARACTERS.find(c=>c.id===id);
+}
+
+function characterPower(c){
+  return c?(c.power||rarity(c.rank).power):0;
+}
 
 function totalPower(){
   return Object.entries(state.inventory).reduce((sum,[id,count])=>{
@@ -95,16 +151,27 @@ function toast(msg){
   const el=document.getElementById("toast");
   el.textContent=msg;
   el.classList.add("show");
+
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>el.classList.remove("show"),2600);
+
+  toastTimer=setTimeout(()=>{
+    el.classList.remove("show");
+  },2600);
 }
 
+/* ==================================
+   뽑기
+================================== */
+
 function weightedRank(){
-  let n=Math.random()*100,acc=0;
+  let n=Math.random()*100;
+  let acc=0;
+
   for(const r of GACHA){
     acc+=r.weight;
     if(n<acc)return r.rank;
   }
+
   return 0;
 }
 
@@ -115,8 +182,13 @@ function summonOne(){
   }
 
   state.coins-=SUMMON_COST;
+
   const rank=weightedRank();
-  let pool=CHARACTERS.filter(c=>c.rank===rank&&c.id!=="ultimatePig");
+
+  let pool=CHARACTERS.filter(c=>
+    c.rank===rank&&c.id!=="ultimatePig"
+  );
+
   let got;
 
   if(rank===5){
@@ -131,6 +203,7 @@ function summonOne(){
   }
 
   state.inventory[got.id]=(state.inventory[got.id]||0)+1;
+
   return got;
 }
 
@@ -141,6 +214,7 @@ function summon(n){
   }
 
   const results=[];
+
   for(let i=0;i<n;i++){
     const c=summonOne();
     if(c)results.push(c);
@@ -150,8 +224,12 @@ function summon(n){
   showSummons(results);
 
   const secrets=results.filter(c=>c.rank===5).length;
-  if(secrets)toast("🎉 비밀 등급 캐릭터 등장!");
-  else toast(n+"회 뽑기 완료!");
+
+  if(secrets){
+    toast("🎉 비밀 등급 캐릭터 등장!");
+  }else{
+    toast(n+"회 뽑기 완료!");
+  }
 }
 
 function showSummons(items){
@@ -159,7 +237,13 @@ function showSummons(items){
     items.map(c=>cardHTML(c,{compact:true})).join("");
 }
 
-function salePrice(c){return [5,10,20,40,80,160][c.rank]||5;}
+/* ==================================
+   캐릭터 카드 및 판매
+================================== */
+
+function salePrice(c){
+  return [5,10,20,40,80,160][c.rank]||5;
+}
 
 function cardHTML(c,{compact=false,sellable=false}={}){
   const r=rarity(c.rank);
@@ -177,7 +261,10 @@ function cardHTML(c,{compact=false,sellable=false}={}){
 
 function renderCollection(){
   const grid=document.getElementById("collectionGrid");
-  const list=CHARACTERS.filter(c=>(state.inventory[c.id]||0)>0);
+
+  const list=CHARACTERS.filter(c=>
+    (state.inventory[c.id]||0)>0
+  );
 
   grid.innerHTML=list.length
     ?list.map(c=>cardHTML(c,{sellable:true})).join("")
@@ -187,19 +274,29 @@ function renderCollection(){
 function populateCharacterSelect(id){
   const sel=document.getElementById(id);
   const old=sel.value;
-  const owned=CHARACTERS.filter(c=>(state.inventory[c.id]||0)>0);
+
+  const owned=CHARACTERS.filter(c=>
+    (state.inventory[c.id]||0)>0
+  );
 
   sel.innerHTML=owned.length
     ?owned.map(c=>'<option value="'+c.id+'">'+c.name+' ×'+state.inventory[c.id]+'</option>').join("")
     :'<option value="">보유 캐릭터 없음</option>';
 
-  if(owned.some(c=>c.id===old))sel.value=old;
+  if(owned.some(c=>c.id===old)){
+    sel.value=old;
+  }
 }
+
+/* ==================================
+   강화
+================================== */
 
 function renderEnhance(){
   populateCharacterSelect("enhanceSelect");
 
   const c=character(document.getElementById("enhanceSelect").value);
+
   const box=document.getElementById("enhanceInfo");
   const button=document.getElementById("enhanceButton");
 
@@ -210,181 +307,155 @@ function renderEnhance(){
   }
 
   const count=state.inventory[c.id]||0;
-  box.innerHTML='<strong style="color:'+rarity(c.rank).color+'">'+c.name+'</strong><br>'+
+
+  box.innerHTML=
+    '<strong style="color:'+rarity(c.rank).color+'">'+c.name+'</strong><br>'+
     '등급: '+rarity(c.rank).name+' · 보유 수: '+count+'명<br>'+
     (c.rank===5
       ?"최고 등급입니다. 더 이상 일반 강화할 수 없어요."
       :"성공 확률: "+RATES[c.rank]+"% · 같은 캐릭터 2명 필요");
 
   button.disabled=count<2||c.rank>=5;
+
   renderSpecialEnhance();
 }
 
 function renderSpecialEnhance(){
   const panel=document.getElementById("specialEnhancePanel");
-  const ready=(state.inventory.devSongao||0)>0&&(state.inventory.tyrant||0)>0;
+
+  const ready=
+    (state.inventory.devSongao||0)>0&&
+    (state.inventory.tyrant||0)>0;
 
   panel.hidden=!ready;
+
   if(ready){
     document.getElementById("specialChance").textContent=
       specialBoosted?"80% (방향키 보너스)":"1%";
   }
 }
 
-function renderBattle(){
-  populateCharacterSelect("battleSelect");
-  updateFighters();
+function enhance(){
+  const id=document.getElementById("enhanceSelect").value;
+  const c=character(id);
 
-  document.getElementById("botRoster").innerHTML=BOTS.map(b=>
-    '<div class="bot-item"><strong>'+b.icon+" "+b.name+
-    '</strong><span>'+rarity(b.rank).name+' · 전투력 '+b.power.toLocaleString()+
-    '</span></div>'
-  ).join("");
-}
+  if(!c)return;
 
-function fighterHTML(c,power){
-  if(!c)return "출전 가능한 캐릭터가 없습니다.";
-  const r=rarity(c.rank);
-
-  return '<div class="character-icon">'+c.icon+'</div>'+
-    '<div class="rarity" style="color:'+r.color+'">'+r.name+'</div>'+
-    '<h3>'+c.name+'</h3><p>전투력 '+power.toLocaleString()+'</p>';
-}
-
-function updateFighters(){
-  const c=character(document.getElementById("battleSelect").value);
-  document.getElementById("battleMyCard").innerHTML=
-    c?fighterHTML(c,characterPower(c)):"캐릭터 없음";
-  document.getElementById("battleButton").disabled=!c||battleInProgress;
-  document.getElementById("autoBattleButton").disabled=!c;
-}
-
-function setHealthBars(playerHp,botHp,playerName,botName){
-  document.getElementById("playerHpName").textContent=playerName;
-  document.getElementById("botHpName").textContent=botName;
-  document.getElementById("playerHpText").textContent=playerHp+" / 100";
-  document.getElementById("botHpText").textContent=botHp+" / 100";
-
-  const p=document.getElementById("playerHpBar");
-  const b=document.getElementById("botHpBar");
-
-  p.style.width=playerHp+"%";
-  b.style.width=botHp+"%";
-  p.classList.toggle("low",playerHp<=30);
-  b.classList.toggle("low",botHp<=30);
-}
-
-function addBattleLog(message,kind){
-  const log=document.getElementById("battleLog");
-
-  if(log.textContent==="대전 기록이 여기에 표시됩니다.")log.innerHTML="";
-
-  const line=document.createElement("p");
-  line.className=kind||"system-action";
-  line.textContent=message;
-  log.appendChild(line);
-  log.scrollTop=log.scrollHeight;
-}
-
-function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
-
-function randomAttack(){
-  const attacks=[
-    {name:"빠른 잽",power:.78},
-    {name:"정면 돌파",power:1},
-    {name:"강력한 필살기",power:1.28}
-  ];
-  return attacks[Math.floor(Math.random()*attacks.length)];
-}
-
-function randomBot(){
-  return BOTS[Math.floor(Math.random()*BOTS.length)];
-}
-
-async function battle(){
-  if(battleInProgress)return;
-
-  const c=character(document.getElementById("battleSelect").value);
-  if(!c){
-    toast("출전 캐릭터를 먼저 획득해 주세요.");
-    return;
-  }
-  if(state.coins<BATTLE_START_COST){
-    toast("대전을 시작하려면 5코인이 필요해요.");
+  if((state.inventory[id]||0)<2){
+    toast("같은 캐릭터가 2명 이상 필요해요.");
     return;
   }
 
-  const bot=randomBot();
-  document.getElementById("battleBotCard").innerHTML=fighterHTML(bot,bot.power);
-
-  battleInProgress=true;
-  document.getElementById("battleButton").disabled=true;
-
-  const speed=Number(document.getElementById("battleSpeed").value)||1;
-  const result=document.getElementById("battleResult");
-
-  result.className="battle-result";
-  result.textContent="대전 진행 중...";
-
-  let playerHp=100;
-  let botHp=100;
-  let turn=0;
-  let playerTurn=true;
-
-  const playerPower=characterPower(c);
-  const botPower=bot.power;
-
-  setHealthBars(playerHp,botHp,c.name,bot.name);
-  document.getElementById("battleLog").innerHTML="";
-  addBattleLog("대전 시작! "+c.name+" 전투력 "+playerPower+" · "+bot.name+" 전투력 "+botPower);
-
-  while(playerHp>0&&botHp>0&&turn<30){
-    turn++;
-
-    if(playerTurn){
-      const attack=randomAttack();
-      const damage=Math.max(4,Math.round(
-        (8+8*playerPower/botPower)*attack.power*(.85+Math.random()*.3)
-      ));
-      botHp=Math.max(0,botHp-damage);
-      addBattleLog(c.name+"의 "+attack.name+"! "+bot.name+"에게 "+damage+" 피해를 줬어요.","player-action");
-    }else{
-      const attack=randomAttack();
-      const damage=Math.max(4,Math.round(
-        (8+8*botPower/playerPower)*attack.power*(.85+Math.random()*.3)
-      ));
-      playerHp=Math.max(0,playerHp-damage);
-      addBattleLog(bot.name+"의 "+attack.name+"! "+c.name+"에게 "+damage+" 피해를 줬어요.","bot-action");
-    }
-
-    setHealthBars(playerHp,botHp,c.name,bot.name);
-    await wait(600/speed);
-    playerTurn=!playerTurn;
+  if(c.rank>=5){
+    toast("비밀 등급은 최고 등급이에요.");
+    return;
   }
 
-  const win=botHp<=0||(playerHp>0&&botHp>0&&playerHp>=botHp);
-  state.coins-=BATTLE_START_COST;
+  const chance=RATES[c.rank];
 
-  if(win){
-    state.wins++;
-    state.coins+=100;
-    result.className="battle-result win";
-    result.innerHTML="🏆 <strong>승리!</strong><br>"+c.name+"이(가) "+bot.name+
-      "을(를) 이겼어요.<br>대전 비용: 🪙 5 코인 · 승리 보상: 🪙 100 코인";
-    addBattleLog(c.name+" 승리!","system-action");
+  state.inventory[id]--;
+
+  let msg;
+
+  if(Math.random()*100<chance){
+    const nextRank=c.rank+1;
+
+    const candidates=CHARACTERS.filter(x=>
+      x.rank===nextRank&&x.id!=="ultimatePig"
+    );
+
+    const next=candidates[
+      Math.floor(Math.random()*candidates.length)
+    ];
+
+    state.inventory[next.id]=(state.inventory[next.id]||0)+1;
+
+    msg="강화 성공! "+c.name+" → "+next.name+" ("+rarity(nextRank).name+")";
   }else{
-    const deducted=Math.min(BATTLE_LOSS_COST,state.coins);
-    state.coins-=deducted;
-    result.className="battle-result lose";
-    result.innerHTML="💥 <strong>패배...</strong><br>"+bot.name+
-      "에게 패배했어요.<br>대전 비용: 🪙 5 코인 · 패배 차감: 🪙 "+deducted+" 코인";
-    addBattleLog(bot.name+" 승리!","system-action");
+    msg="강화 실패! 재료 1명이 소모되었어요. "+c.name+"은(는) 남아 있습니다.";
   }
+
+  document.getElementById("enhanceLog").textContent=msg;
 
   save();
-  battleInProgress=false;
-  updateFighters();
+  toast(msg);
 }
+
+/* ==================================
+   자동 강화 - 최대 3분
+================================== */
+
+function stopAutoEnhance(message){
+  if(autoEnhanceTimer){
+    clearInterval(autoEnhanceTimer);
+    autoEnhanceTimer=null;
+  }
+
+  if(autoEnhanceLimitTimer){
+    clearTimeout(autoEnhanceLimitTimer);
+    autoEnhanceLimitTimer=null;
+  }
+
+  const button=document.getElementById("autoEnhanceButton");
+
+  if(button){
+    button.textContent="자동 강화 시작";
+  }
+
+  if(message){
+    toast(message);
+  }
+}
+
+function toggleAutoEnhance(){
+  const button=document.getElementById("autoEnhanceButton");
+
+  if(autoEnhanceTimer){
+    stopAutoEnhance("자동 강화를 멈췄어요.");
+    return;
+  }
+
+  lastAutoEnhanceAt=Date.now();
+
+  autoEnhanceTimer=setInterval(()=>{
+    const speed=Number(
+      document.getElementById("enhanceSpeed").value
+    )||1;
+
+    if(Date.now()-lastAutoEnhanceAt<1000/speed){
+      return;
+    }
+
+    lastAutoEnhanceAt=Date.now();
+
+    const c=CHARACTERS.find(x=>
+      x.rank<5&&(state.inventory[x.id]||0)>=2
+    );
+
+    if(!c){
+      stopAutoEnhance("강화할 캐릭터가 없어 자동 강화를 멈췄어요.");
+      return;
+    }
+
+    document.getElementById("enhanceSelect").value=c.id;
+
+    enhance();
+
+  },25);
+
+  // 180초 후 자동 정지
+  autoEnhanceLimitTimer=setTimeout(()=>{
+    stopAutoEnhance("⏰ 자동 강화 3분이 지나 자동으로 정지되었습니다.");
+  },180000);
+
+  button.textContent="자동 강화 중지";
+
+  toast("자동 강화가 시작되었습니다. 3분 후 자동 정지됩니다.");
+}
+
+/* ==================================
+   자동 판매
+================================== */
 
 function toggleAutoSell(){
   const button=document.getElementById("autoSellButton");
@@ -392,8 +463,11 @@ function toggleAutoSell(){
   if(autoSellTimer){
     clearInterval(autoSellTimer);
     autoSellTimer=null;
+
     button.textContent="자동 판매 시작";
+
     toast("자동 판매를 멈췄어요.");
+
     return;
   }
 
@@ -402,6 +476,7 @@ function toggleAutoSell(){
 
     for(const c of CHARACTERS){
       const count=state.inventory[c.id]||0;
+
       if(count>1){
         state.inventory[c.id]--;
         state.coins+=salePrice(c);
@@ -410,47 +485,17 @@ function toggleAutoSell(){
     }
 
     if(changed)save();
+
   },900);
 
   button.textContent="자동 판매 중지";
+
   toast("각 캐릭터를 1명씩 남기고 중복만 자동 판매합니다.");
 }
 
-function toggleAutoEnhance(){
-  const button=document.getElementById("autoEnhanceButton");
-
-  if(autoEnhanceTimer){
-    clearInterval(autoEnhanceTimer);
-    autoEnhanceTimer=null;
-    button.textContent="자동 강화 시작";
-    toast("자동 강화를 멈췄어요.");
-    return;
-  }
-
-  lastAutoEnhanceAt=Date.now();
-
-  autoEnhanceTimer=setInterval(()=>{
-    const speed=Number(document.getElementById("enhanceSpeed").value)||1;
-    if(Date.now()-lastAutoEnhanceAt<1000/speed)return;
-
-    lastAutoEnhanceAt=Date.now();
-    const c=CHARACTERS.find(x=>x.rank<5&&(state.inventory[x.id]||0)>=2);
-
-    if(!c){
-      clearInterval(autoEnhanceTimer);
-      autoEnhanceTimer=null;
-      button.textContent="자동 강화 시작";
-      toast("강화할 캐릭터가 없어 자동 강화를 멈췄어요.");
-      return;
-    }
-
-    document.getElementById("enhanceSelect").value=c.id;
-    enhance();
-  },25);
-
-  button.textContent="자동 강화 중지";
-  toast("선택한 속도로 강화합니다. 최대 10배속이에요.");
-}
+/* ==================================
+   자동 뽑기
+================================== */
 
 function toggleAutoSummon(){
   const button=document.getElementById("autoSummonButton");
@@ -458,8 +503,11 @@ function toggleAutoSummon(){
   if(autoSummonTimer){
     clearInterval(autoSummonTimer);
     autoSummonTimer=null;
+
     button.textContent="자동 뽑기 시작 · 10배속";
+
     toast("자동 뽑기를 멈췄어요.");
+
     return;
   }
 
@@ -474,29 +522,270 @@ function toggleAutoSummon(){
     if(affordable<=0){
       clearInterval(autoSummonTimer);
       autoSummonTimer=null;
+
       button.textContent="자동 뽑기 시작 · 10배속";
+
       toast("코인을 모두 사용해 자동 뽑기를 멈췄어요.");
+
       return;
     }
 
     summon(Math.min(10,affordable));
+
   },1000);
 
   button.textContent="자동 뽑기 중지";
+
   toast("코인이 부족해질 때까지 초당 최대 10회 뽑습니다.");
 }
+
+/* ==================================
+   대전
+================================== */
+
+function renderBattle(){
+  populateCharacterSelect("battleSelect");
+
+  updateFighters();
+
+  document.getElementById("botRoster").innerHTML=BOTS.map(b=>
+    '<div class="bot-item"><strong>'+b.icon+" "+b.name+
+    '</strong><span>'+rarity(b.rank).name+' · 전투력 '+b.power.toLocaleString()+
+    '</span></div>'
+  ).join("");
+}
+
+function fighterHTML(c,power){
+  if(!c)return "출전 가능한 캐릭터가 없습니다.";
+
+  const r=rarity(c.rank);
+
+  return '<div class="character-icon">'+c.icon+'</div>'+
+    '<div class="rarity" style="color:'+r.color+'">'+r.name+'</div>'+
+    '<h3>'+c.name+'</h3><p>전투력 '+power.toLocaleString()+'</p>';
+}
+
+function updateFighters(){
+  const c=character(document.getElementById("battleSelect").value);
+
+  document.getElementById("battleMyCard").innerHTML=
+    c?fighterHTML(c,characterPower(c)):"캐릭터 없음";
+
+  document.getElementById("battleButton").disabled=
+    !c||battleInProgress;
+
+  document.getElementById("autoBattleButton").disabled=!c;
+}
+
+function setHealthBars(playerHp,botHp,playerName,botName){
+  document.getElementById("playerHpName").textContent=playerName;
+  document.getElementById("botHpName").textContent=botName;
+
+  document.getElementById("playerHpText").textContent=playerHp+" / 100";
+  document.getElementById("botHpText").textContent=botHp+" / 100";
+
+  const p=document.getElementById("playerHpBar");
+  const b=document.getElementById("botHpBar");
+
+  p.style.width=playerHp+"%";
+  b.style.width=botHp+"%";
+
+  p.classList.toggle("low",playerHp<=30);
+  b.classList.toggle("low",botHp<=30);
+}
+
+function addBattleLog(message,kind){
+  const log=document.getElementById("battleLog");
+
+  if(log.textContent==="대전 기록이 여기에 표시됩니다."){
+    log.innerHTML="";
+  }
+
+  const line=document.createElement("p");
+
+  line.className=kind||"system-action";
+  line.textContent=message;
+
+  log.appendChild(line);
+  log.scrollTop=log.scrollHeight;
+}
+
+function wait(ms){
+  return new Promise(resolve=>setTimeout(resolve,ms));
+}
+
+function randomAttack(){
+  const attacks=[
+    {name:"빠른 잽",power:.78},
+    {name:"정면 돌파",power:1},
+    {name:"강력한 필살기",power:1.28}
+  ];
+
+  return attacks[Math.floor(Math.random()*attacks.length)];
+}
+
+function randomBot(){
+  return BOTS[Math.floor(Math.random()*BOTS.length)];
+}
+
+async function battle(){
+  if(battleInProgress)return;
+
+  const c=character(document.getElementById("battleSelect").value);
+
+  if(!c){
+    toast("출전 캐릭터를 먼저 획득해 주세요.");
+    return;
+  }
+
+  if(state.coins<BATTLE_START_COST){
+    toast("대전을 시작하려면 5코인이 필요해요.");
+    return;
+  }
+
+  const bot=randomBot();
+
+  document.getElementById("battleBotCard").innerHTML=
+    fighterHTML(bot,bot.power);
+
+  battleInProgress=true;
+
+  document.getElementById("battleButton").disabled=true;
+
+  const speed=Number(
+    document.getElementById("battleSpeed").value
+  )||1;
+
+  const result=document.getElementById("battleResult");
+
+  result.className="battle-result";
+  result.textContent="대전 진행 중...";
+
+  let playerHp=100;
+  let botHp=100;
+  let turn=0;
+  let playerTurn=true;
+
+  const playerPower=characterPower(c);
+  const botPower=bot.power;
+
+  setHealthBars(playerHp,botHp,c.name,bot.name);
+
+  document.getElementById("battleLog").innerHTML="";
+
+  addBattleLog(
+    "대전 시작! "+c.name+" 전투력 "+playerPower+
+    " · "+bot.name+" 전투력 "+botPower
+  );
+
+  while(playerHp>0&&botHp>0&&turn<30){
+    turn++;
+
+    if(playerTurn){
+      const attack=randomAttack();
+
+      const damage=Math.max(4,Math.round(
+        (8+8*playerPower/botPower)*
+        attack.power*(.85+Math.random()*.3)
+      ));
+
+      botHp=Math.max(0,botHp-damage);
+
+      addBattleLog(
+        c.name+"의 "+attack.name+"! "+
+        bot.name+"에게 "+damage+" 피해를 줬어요.",
+        "player-action"
+      );
+
+    }else{
+      const attack=randomAttack();
+
+      const damage=Math.max(4,Math.round(
+        (8+8*botPower/playerPower)*
+        attack.power*(.85+Math.random()*.3)
+      ));
+
+      playerHp=Math.max(0,playerHp-damage);
+
+      addBattleLog(
+        bot.name+"의 "+attack.name+"! "+
+        c.name+"에게 "+damage+" 피해를 줬어요.",
+        "bot-action"
+      );
+    }
+
+    setHealthBars(playerHp,botHp,c.name,bot.name);
+
+    await wait(600/speed);
+
+    playerTurn=!playerTurn;
+  }
+
+  const win=
+    botHp<=0||
+    (playerHp>0&&botHp>0&&playerHp>=botHp);
+
+  state.coins-=BATTLE_START_COST;
+
+  if(win){
+    state.wins++;
+    state.coins+=100;
+
+    result.className="battle-result win";
+
+    result.innerHTML=
+      "🏆 <strong>승리!</strong><br>"+
+      c.name+"이(가) "+bot.name+
+      "을(를) 이겼어요.<br>"+
+      "대전 비용: 🪙 5 코인 · 승리 보상: 🪙 100 코인";
+
+    addBattleLog(c.name+" 승리!","system-action");
+
+  }else{
+    const deducted=Math.min(BATTLE_LOSS_COST,state.coins);
+
+    state.coins-=deducted;
+
+    result.className="battle-result lose";
+
+    result.innerHTML=
+      "💥 <strong>패배...</strong><br>"+
+      bot.name+"에게 패배했어요.<br>"+
+      "대전 비용: 🪙 5 코인 · 패배 차감: 🪙 "+
+      deducted+" 코인";
+
+    addBattleLog(bot.name+" 승리!","system-action");
+  }
+
+  save();
+
+  battleInProgress=false;
+
+  updateFighters();
+}
+
+/* ==================================
+   자동 대전
+================================== */
 
 async function runAutoBattle(){
   while(autoBattleRunning){
     if(state.coins<BATTLE_START_COST){
       autoBattleRunning=false;
-      document.getElementById("autoBattleButton").textContent="자동 대전 시작";
+
+      document.getElementById("autoBattleButton").textContent=
+        "자동 대전 시작";
+
       toast("코인이 부족해 자동 대전을 멈췄어요.");
+
       break;
     }
 
     await battle();
-    if(autoBattleRunning)await wait(900);
+
+    if(autoBattleRunning){
+      await wait(900);
+    }
   }
 }
 
@@ -505,21 +794,33 @@ function toggleAutoBattle(){
 
   if(autoBattleRunning){
     autoBattleRunning=false;
+
     button.textContent="자동 대전 시작";
+
     toast("자동 대전을 멈췄어요.");
+
     return;
   }
 
-  if(!CHARACTERS.some(c=>(state.inventory[c.id]||0)>0)){
+  if(!CHARACTERS.some(c=>
+    (state.inventory[c.id]||0)>0
+  )){
     toast("먼저 캐릭터를 획득해 주세요.");
     return;
   }
 
   autoBattleRunning=true;
+
   button.textContent="자동 대전 중지";
+
   toast("매 경기마다 상대 봇이 무작위로 정해집니다.");
+
   runAutoBattle();
 }
+
+/* ==================================
+   특수 강화
+================================== */
 
 function specialEnhance(){
   if(!(state.inventory.devSongao>0&&state.inventory.tyrant>0)){
@@ -531,9 +832,14 @@ function specialEnhance(){
 
   if(Math.random()<chance){
     const ultimate=character("ultimatePig");
-    state.inventory.ultimatePig=(state.inventory.ultimatePig||0)+1;
+
+    state.inventory.ultimatePig=
+      (state.inventory.ultimatePig||0)+1;
+
     save();
+
     showGameClear(ultimate.name);
+
   }else{
     toast("특수강화 실패! 재료 캐릭터는 그대로 보존됩니다.");
   }
@@ -548,6 +854,10 @@ function closeGameClear(){
   document.getElementById("gameClearOverlay").hidden=true;
 }
 
+/* ==================================
+   관리자
+================================== */
+
 function activateAdmin(){
   const input=document.getElementById("adminCode");
 
@@ -556,20 +866,31 @@ function activateAdmin(){
     return;
   }
 
-  state.inventory.ultimatePig=(state.inventory.ultimatePig||0)+1;
+  state.inventory.ultimatePig=
+    (state.inventory.ultimatePig||0)+1;
+
   save();
+
   showGameClear("황한송김박돼지 승원");
+
   input.value="";
 }
+
+/* ==================================
+   방향키 비밀 코드
+================================== */
 
 const cheatSequence=[
   "ArrowUp","ArrowDown","ArrowUp","ArrowDown",
   "ArrowLeft","ArrowRight","ArrowLeft","ArrowRight"
 ];
+
 let cheatProgress=0;
 
 document.addEventListener("keydown",event=>{
-  if(event.key.startsWith("Arrow"))event.preventDefault();
+  if(event.key.startsWith("Arrow")){
+    event.preventDefault();
+  }
 
   if(event.key===cheatSequence[cheatProgress]){
     cheatProgress++;
@@ -577,53 +898,36 @@ document.addEventListener("keydown",event=>{
     if(cheatProgress===cheatSequence.length){
       specialBoosted=true;
       cheatProgress=0;
+
       renderSpecialEnhance();
+
       toast("특수강화 확률이 80%로 올라갔어요!");
     }
+
   }else{
-    cheatProgress=event.key===cheatSequence[0]?1:0;
+    cheatProgress=
+      event.key===cheatSequence[0]?1:0;
   }
 });
 
-function enhance(){
-  const id=document.getElementById("enhanceSelect").value;
-  const c=character(id);
-  if(!c)return;
-
-  if((state.inventory[id]||0)<2){
-    toast("같은 캐릭터가 2명 이상 필요해요.");
-    return;
-  }
-  if(c.rank>=5){
-    toast("비밀 등급은 최고 등급이에요.");
-    return;
-  }
-
-  const chance=RATES[c.rank];
-  state.inventory[id]--;
-  let msg;
-
-  if(Math.random()*100<chance){
-    const nextRank=c.rank+1;
-    const candidates=CHARACTERS.filter(x=>x.rank===nextRank&&x.id!=="ultimatePig");
-    const next=candidates[Math.floor(Math.random()*candidates.length)];
-    state.inventory[next.id]=(state.inventory[next.id]||0)+1;
-    msg="강화 성공! "+c.name+" → "+next.name+" ("+rarity(nextRank).name+")";
-  }else{
-    msg="강화 실패! 재료 1명이 소모되었어요. "+c.name+"은(는) 남아 있습니다.";
-  }
-
-  document.getElementById("enhanceLog").textContent=msg;
-  save();
-  toast(msg);
-}
+/* ==================================
+   전체 화면 갱신
+================================== */
 
 function renderAll(){
-  document.getElementById("coins").textContent=state.coins.toLocaleString();
+  document.getElementById("coins").textContent=
+    state.coins.toLocaleString();
+
   document.getElementById("ownedCount").textContent=
-    CHARACTERS.filter(c=>(state.inventory[c.id]||0)>0).length;
-  document.getElementById("winCount").textContent=state.wins;
-  document.getElementById("battlePower").textContent=totalPower().toLocaleString();
+    CHARACTERS.filter(c=>
+      (state.inventory[c.id]||0)>0
+    ).length;
+
+  document.getElementById("winCount").textContent=
+    state.wins;
+
+  document.getElementById("battlePower").textContent=
+    totalPower().toLocaleString();
 
   renderCollection();
   renderEnhance();
@@ -631,47 +935,102 @@ function renderAll(){
   renderSpecialEnhance();
 }
 
-document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
-  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b===btn));
-  document.querySelectorAll(".page").forEach(p=>
-    p.classList.toggle("active",p.id==="page-"+btn.dataset.page)
-  );
-}));
+/* ==================================
+   버튼 연결
+================================== */
 
-document.getElementById("summonOne").addEventListener("click",()=>summon(1));
-document.getElementById("summonTen").addEventListener("click",()=>summon(10));
-document.getElementById("autoSummonButton").addEventListener("click",toggleAutoSummon);
-document.getElementById("enhanceSelect").addEventListener("change",renderEnhance);
+document.querySelectorAll(".tab").forEach(btn=>
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(b=>
+      b.classList.toggle("active",b===btn)
+    );
 
-document.getElementById("collectionGrid").addEventListener("click",event=>{
-  const button=event.target.closest("[data-sell]");
-  if(!button)return;
+    document.querySelectorAll(".page").forEach(p=>
+      p.classList.toggle(
+        "active",
+        p.id==="page-"+btn.dataset.page
+      )
+    );
+  })
+);
 
-  const id=button.dataset.sell;
-  const c=character(id);
-  const count=state.inventory[id]||0;
-  if(!c||count<1)return;
+document.getElementById("summonOne")
+  .addEventListener("click",()=>summon(1));
 
-  state.inventory[id]=count-1;
-  if(state.inventory[id]===0)delete state.inventory[id];
+document.getElementById("summonTen")
+  .addEventListener("click",()=>summon(10));
 
-  const earned=salePrice(c);
-  state.coins+=earned;
-  save();
-  toast(c.name+" 1명을 판매해 "+earned+"코인을 받았어요.");
-});
+document.getElementById("autoSummonButton")
+  .addEventListener("click",toggleAutoSummon);
 
-document.getElementById("enhanceButton").addEventListener("click",enhance);
-document.getElementById("autoSellButton").addEventListener("click",toggleAutoSell);
-document.getElementById("autoEnhanceButton").addEventListener("click",toggleAutoEnhance);
-document.getElementById("specialEnhanceButton").addEventListener("click",specialEnhance);
-document.getElementById("adminButton").addEventListener("click",activateAdmin);
-document.getElementById("closeGameClear").addEventListener("click",closeGameClear);
-document.getElementById("battleSelect").addEventListener("change",updateFighters);
-document.getElementById("battleSpeed").addEventListener("change",()=>{
-  toast("대전 속도: "+document.getElementById("battleSpeed").value+"배속");
-});
-document.getElementById("autoBattleButton").addEventListener("click",toggleAutoBattle);
-document.getElementById("battleButton").addEventListener("click",battle);
+document.getElementById("enhanceSelect")
+  .addEventListener("change",renderEnhance);
+
+document.getElementById("collectionGrid")
+  .addEventListener("click",event=>{
+    const button=event.target.closest("[data-sell]");
+
+    if(!button)return;
+
+    const id=button.dataset.sell;
+    const c=character(id);
+    const count=state.inventory[id]||0;
+
+    if(!c||count<1)return;
+
+    state.inventory[id]=count-1;
+
+    if(state.inventory[id]===0){
+      delete state.inventory[id];
+    }
+
+    const earned=salePrice(c);
+
+    state.coins+=earned;
+
+    save();
+
+    toast(c.name+" 1명을 판매해 "+earned+"코인을 받았어요.");
+  });
+
+document.getElementById("enhanceButton")
+  .addEventListener("click",enhance);
+
+document.getElementById("autoSellButton")
+  .addEventListener("click",toggleAutoSell);
+
+document.getElementById("autoEnhanceButton")
+  .addEventListener("click",toggleAutoEnhance);
+
+document.getElementById("specialEnhanceButton")
+  .addEventListener("click",specialEnhance);
+
+document.getElementById("adminButton")
+  .addEventListener("click",activateAdmin);
+
+document.getElementById("closeGameClear")
+  .addEventListener("click",closeGameClear);
+
+document.getElementById("battleSelect")
+  .addEventListener("change",updateFighters);
+
+document.getElementById("battleSpeed")
+  .addEventListener("change",()=>{
+    toast(
+      "대전 속도: "+
+      document.getElementById("battleSpeed").value+
+      "배속"
+    );
+  });
+
+document.getElementById("autoBattleButton")
+  .addEventListener("click",toggleAutoBattle);
+
+document.getElementById("battleButton")
+  .addEventListener("click",battle);
+
+/* ==================================
+   게임 시작
+================================== */
 
 renderAll();
